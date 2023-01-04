@@ -23,62 +23,48 @@ public class UDPReceiver : MonoBehaviour
     Vector3 remoteStartPos;
     Vector3 currPos;
 
-    //Vector3 startRot;
-    Quaternion startRot;
-    //Vector3 remoteStartRot;
-    Quaternion remoteStartRot;
-    //Vector3 currRot;
-    Quaternion currRot;
+    Vector3 startRot;
+    Vector3 remoteStartRot;
+    Vector3 currRot;
 
     // main thread that listens to UDP messages through a defined port
     void UDPTest()
     {
         // create client and set the port (HARCODEADO EN EL EDITOR!!-----)
-        UdpClient client = new UdpClient(serverPort);
+        client = new UdpClient("192.168.0.28", serverPort);
         // loop needed to keep listening
         while (true)
         {
             try
             {
                 // recieve messages through the end point
-                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Any, serverPort);
+                IPEndPoint remoteEndPoint = new IPEndPoint(IPAddress.Parse("192.168.0.17"), serverPort);
                 byte[] receiveBytes = client.Receive(ref remoteEndPoint);
-                receivedMessage = Encoding.ASCII.GetString(receiveBytes);
-                bool resetStart = Convert.ToBoolean(receivedMessage);
-
-                receiveBytes = client.Receive(ref remoteEndPoint);
                 // once the message is recieved, encode it as ASCII
                 receivedMessage = Encoding.ASCII.GetString(receiveBytes);
                 Debug.Log("Position: " + receivedMessage);
 
-                //string[] splittedMessage = receivedMessage.Split(" ");
-                string[] splittedMessage = receivedMessage.Split(", ");
-                currPos = new Vector3(float.Parse(splittedMessage[0][1..], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2][..^1], CultureInfo.InvariantCulture));
+                string[] splittedMessage = receivedMessage.Split(" ");
+                currPos = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
 
-                if (resetStart)
-                {
-                    remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
-                }
+                if (remoteStartPos == null)
+                    if (remoteStartPos == new Vector3(0.0f, 0.0f, 0.0f))
+                    {
+                        remoteStartPos = new Vector3(currPos.x, currPos.y, currPos.z);
+                    }
 
                 receiveBytes = client.Receive(ref remoteEndPoint);
                 // once the message is recieved, encode it as ASCII
                 receivedMessage = Encoding.ASCII.GetString(receiveBytes);
                 Debug.Log("Rotation: " + receivedMessage);
 
-                //splittedMessage = receivedMessage.Split(" ");
-                splittedMessage = receivedMessage.Split(", ");
-                //currRot = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
-                currRot = new Quaternion(float.Parse(splittedMessage[0][1..], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture), float.Parse(splittedMessage[3][..^1], CultureInfo.InvariantCulture));
+                splittedMessage = receivedMessage.Split(" ");
+                currRot = new Vector3(float.Parse(splittedMessage[0], CultureInfo.InvariantCulture), float.Parse(splittedMessage[1], CultureInfo.InvariantCulture), float.Parse(splittedMessage[2], CultureInfo.InvariantCulture));
 
-                //if (remoteStartRot == new Vector3(0.0f, 0.0f, 0.0f))
-                //{
-                //    remoteStartRot = new Vector3(currRot.x, currRot.y, currRot.z);
-                //}
-                if (resetStart)
+                if (remoteStartRot == new Vector3(0.0f, 0.0f, 0.0f))
                 {
-                    remoteStartRot = new Quaternion(currRot.x, currRot.y, currRot.z, currRot.w);
+                    remoteStartRot = new Vector3(currRot.x, currRot.y, currRot.z);
                 }
-
             }
             catch (Exception e)
             {
@@ -88,10 +74,10 @@ public class UDPReceiver : MonoBehaviour
     }
     void OnDisable()
     {
+        client.Close();
         // stop thread when object is disabled
         if (receiveThread != null)
             receiveThread.Abort();
-        client.Close();
     }
     // Start is called before the first frame update
     void Start()
@@ -102,8 +88,7 @@ public class UDPReceiver : MonoBehaviour
         receiveThread.Start();
 
         startPos = ScreenCamera.transform.position;
-        //startRot = ScreenCamera.transform.rotation.eulerAngles;
-        startRot = ScreenCamera.transform.rotation;
+        startRot = ScreenCamera.transform.rotation.eulerAngles;
     }
 
     // Update is called once per frame
@@ -113,12 +98,10 @@ public class UDPReceiver : MonoBehaviour
         {
             Vector3 remotePosDiff = currPos - remoteStartPos;
             ScreenCamera.transform.position = remotePosDiff + startPos;
+            ScreenCamera.transform.Rotate(currRot);
 
-            // S'HAURIA DE MIRAR COM FER OPERACIONS AMB QUATERNIONS
-            //Vector3 remoteRotDiff = remoteStartRot - currRot;
-            Quaternion remoteRotDiff = remoteStartRot * Quaternion.Inverse(currRot);
-            //ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff + startRot);
-            ScreenCamera.transform.rotation = remoteRotDiff * startRot;
+            Vector3 remoteRotDiff = remoteStartRot - currRot;
+            ScreenCamera.transform.rotation = Quaternion.Euler(remoteRotDiff + startRot);
         }
     }
 }
